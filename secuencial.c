@@ -2,12 +2,17 @@
 #include<stdlib.h>
 #include <sys/time.h>
 
-void ordenarIterativo();
-void ordenarPar(int, int);
-void combinar(int left, int medio, int right);
+
+void ordenarIterativoA();
+void ordenarParA(int, int);
+void combinarA(int left, int medio, int right);
+void ordenarIterativoB();
+void ordenarParB(int, int);
+void combinarB(int left, int medio, int right);
 
 double *aux, *a, *b;
 int N;
+int resultado = 0;
 
 double dwalltime(){
 	double sec;
@@ -22,12 +27,12 @@ static inline int min(int n1, int n2){
     return (n1 < n2) ? n1 : n2;
 }
 
-void ordenarIterativo(){
+void ordenarIterativoA(){
     int lenTrabajo, L, M, R,i;
 
     // Ordenar pares
     for (L=0; L < N-1; L+=2){
-        ordenarPar(L, L+1);
+        ordenarParA(L, L+1);
     }
     
     // 4, 8, 16
@@ -38,13 +43,13 @@ void ordenarIterativo(){
             if (M >= N-1) break;    // ya está ordenado
 
             R = min(L + lenTrabajo - 1, N-1);
-            combinar(L, M, R);
+            combinarA(L, M, R);
         }
     }
 
 }
 
-void ordenarPar(int p1, int p2){
+void ordenarParA(int p1, int p2){
     double aux1;
     
     if (a[p1] > a[p2]){
@@ -54,21 +59,74 @@ void ordenarPar(int p1, int p2){
     }
 }
 
-void combinar(int left, int medio, int right){
-    	int len1 = (medio - left) + 1;
-    	int len2 = (right - medio);
-    	int i = 0, j = 0, k;
+void combinarA(int left, int medio, int right){
+    int len1 = medio - left + 1;
+    int len2 = right - medio;
+    int i = 0, j = 0, k;
 
-    	for (k=left; k<=right; k++){
-        if (i >= len1) aux[k] = a[j++];       // si se acabaron los de L, copiar los de R
-        else if (j >= len2) aux[k] = a[i++];  // si se acabaron los de R, copiar los de L
-        else if (a[i] < a[j]) aux[k] = a[i++];    // copiar el menor entre L y R
-        	else aux[k] = a[j++];
+    for (i = left, j = medio + 1, k = left; k <= right; k++) {
+        if (i > medio) aux[k] = a[j++];
+        else if (j > right) aux[k] = a[i++];
+        else if (a[i] < a[j]) aux[k] = a[i++];
+        else aux[k] = a[j++];
+    }
 
+    // Copiar de vuelta a 'a'
+    for (k = left; k <= right; k++) {
+        a[k] = aux[k];
+    }
+}
+
+
+void ordenarIterativoB(){
+    int lenTrabajo, L, M, R,i;
+
+    // Ordenar pares
+    for (L=0; L < N-1; L+=2){
+        ordenarParB(L, L+1);
+    }
+    
+    // 4, 8, 16
+    for (lenTrabajo=4; lenTrabajo <= N; lenTrabajo *= 2){
+        // En ultimo len: L = 0, 16 // M = 7, 23 // R = 15, 29
+        for (L=0; L < N-1; L += lenTrabajo){
+            M = L + lenTrabajo/2 - 1;
+            if (M >= N-1) break;    // ya está ordenado
+
+            R = min(L + lenTrabajo - 1, N-1);
+            combinarB(L, M, R);
+        }
     }
 
 }
 
+void ordenarParB(int p1, int p2){
+    double aux1;
+    
+    if (b[p1] > b[p2]){
+        aux1 = b[p1];
+        b[p1] = b[p2];
+        b[p2] = aux1;
+    }
+}
+
+void combinarB(int left, int medio, int right){
+    int len1 = medio - left + 1;
+    int len2 = right - medio;
+    int i = 0, j = 0, k;
+
+    for (i = left, j = medio + 1, k = left; k <= right; k++) {
+        if (i > medio) aux[k] = b[j++];
+        else if (j > right) aux[k] = b[i++];
+        else if (b[i] < b[j]) aux[k] = b[i++];
+        else aux[k] = b[j++];
+    }
+
+    // Copiar de vuelta a 'b'
+    for (k = left; k <= right; k++) {
+        b[k] = aux[k];
+    }
+}
 
 int main(int argc, char*argv[]){
 	double timetick;
@@ -80,25 +138,56 @@ int main(int argc, char*argv[]){
 	
 	aux = (double*)malloc(sizeof(double)*N);
 
-	//inicializacion
+	//inicializacion de los arreglos iguales 
 	for(i=0;i<N;i++){
 		a[i] = i;
 		aux[i] = i;
-		b[i] = (N-1)-i;
-		printf("%.1f ",a[i]);
+		b[i] = (N-1)-i;        
  	}
- 	
+
+    /*
+    for (i = 0; i < N; i++) {
+        printf("%.1f ", a[i]);
+    }
+    printf("\n");
+    for (i = 0; i < N; i++) {
+        printf("%.1f ", b[i]);
+    }
+    printf("\n");
+    */
+   
 	timetick = dwalltime(); //arranca a contar 	
  	
- 	ordenarIterativo();
- 	
- 	printf("Tiempo %f \n", dwalltime() - timetick);
+ 	ordenarIterativoA();
+    ordenarIterativoB();
 
-	for(i=0;i<N;i++){
-		printf("%.1f ",aux[i]);
-	}
-	printf("\n");
-	
+    for (int i = 0; i < N; i++) {
+        if (a[i] != b[i]) {
+            resultado=1; // Los arreglos no son iguales
+            printf("Se ha salido en la posicion %d\n", i);
+            break; // No es necesario seguir comparando
+        }
+    }
+
+    printf("Tiempo en segundos %f\n", dwalltime() - timetick);
+
+    /*
+    for (i = 0; i < N; i++) {
+        printf("%.1f ", a[i]);
+    }
+ 	printf("\n");
+    for (i = 0; i < N; i++) {
+        printf("%.1f ", b[i]);
+    }
+ 	printf("\n");
+	*/
+
+    if (resultado==0) {
+        printf("Los arreglos son iguales\n");
+    } else {
+        printf("Los arreglos no son iguales\n");
+    }
+
  	free(a);
  	free(b);
  	free(aux);
