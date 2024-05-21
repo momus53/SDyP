@@ -2,7 +2,6 @@
 #include<stdlib.h>
 #include <sys/time.h>
 
-
 void ordenarIterativoA();
 void ordenarParA(int, int);
 void combinarA(int left, int medio, int right);
@@ -40,13 +39,13 @@ void ordenarIterativoA(){
         // En ultimo len: L = 0, 16 // M = 7, 23 // R = 15, 29
         for (L=0; L < N-1; L += lenTrabajo){
             M = L + lenTrabajo/2 - 1;
-            //if (M >= N-1) break;    // ya está ordenado // por que sale por aca y no poniendo lentTrabajo < N en lugar de <=???
+            //if (M >= N-1) break;    // ya está ordenado 
             R = min(L + lenTrabajo - 1, N-1);
             combinarA(L, M, R);
         }
     }
-    int P=(N);
-    if (lenTrabajo != (P*2)) { //POR QUE SI EN LUGAR DE COMPARAR CON P*2 COMPARO CON N*2 TARDA 44 SEUGNDOS!!!!!
+    //int P=(N*2);
+    if (lenTrabajo != (N*2)) { //POR QUE SI EN LUGAR DE COMPARAR CON P*2 COMPARO CON N*2 TARDA 44 SEUGNDOS!!!!!
         M = (int)(lenTrabajo/2);
         printf("M: %d\n", M);
         combinarA(0, M-1, N-1);
@@ -102,8 +101,8 @@ void ordenarIterativoB(){
             combinarB(L, M, R);
         }
     }
-    int P=(N);
-    if (lenTrabajo != (P*2)) {
+    //int P=(N*2);
+    if (lenTrabajo != (N*2)) {
         M = (int)(lenTrabajo/2);
         printf("M: %d\n", M);
         combinarB(0, M-1, N-1);
