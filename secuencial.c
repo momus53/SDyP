@@ -40,18 +40,22 @@ void ordenarIterativoA(){
         // En ultimo len: L = 0, 16 // M = 7, 23 // R = 15, 29
         for (L=0; L < N-1; L += lenTrabajo){
             M = L + lenTrabajo/2 - 1;
-            if (M >= N-1) break;    // ya está ordenado
-
+            //if (M >= N-1) break;    // ya está ordenado // por que sale por aca y no poniendo lentTrabajo < N en lugar de <=???
             R = min(L + lenTrabajo - 1, N-1);
             combinarA(L, M, R);
         }
+    }
+    int P=(N);
+    if (lenTrabajo != (P*2)) { //POR QUE SI EN LUGAR DE COMPARAR CON P*2 COMPARO CON N*2 TARDA 44 SEUGNDOS!!!!!
+        M = (int)(lenTrabajo/2);
+        printf("M: %d\n", M);
+        combinarA(0, M-1, N-1);
     }
 
 }
 
 void ordenarParA(int p1, int p2){
     double aux1;
-    
     if (a[p1] > a[p2]){
         aux1 = a[p1];
         a[p1] = a[p2];
@@ -60,11 +64,12 @@ void ordenarParA(int p1, int p2){
 }
 
 void combinarA(int left, int medio, int right){
-    int len1 = medio - left + 1;
-    int len2 = right - medio;
+    //int len1 = medio - left + 1;
+    //int len2 = right - medio;
     int i = 0, j = 0, k;
-
-    for (i = left, j = medio + 1, k = left; k <= right; k++) {
+    i = left;
+    j = medio + 1;
+    for ( k = left; k <= right; k++) {
         if (i > medio) aux[k] = a[j++];
         else if (j > right) aux[k] = a[i++];
         else if (a[i] < a[j]) aux[k] = a[i++];
@@ -91,11 +96,17 @@ void ordenarIterativoB(){
         // En ultimo len: L = 0, 16 // M = 7, 23 // R = 15, 29
         for (L=0; L < N-1; L += lenTrabajo){
             M = L + lenTrabajo/2 - 1;
-            if (M >= N-1) break;    // ya está ordenado
+            //if (M >= N-1) break;    // ya está ordenado
 
             R = min(L + lenTrabajo - 1, N-1);
             combinarB(L, M, R);
         }
+    }
+    int P=(N);
+    if (lenTrabajo != (P*2)) {
+        M = (int)(lenTrabajo/2);
+        printf("M: %d\n", M);
+        combinarB(0, M-1, N-1);
     }
 
 }
@@ -114,8 +125,9 @@ void combinarB(int left, int medio, int right){
     int len1 = medio - left + 1;
     int len2 = right - medio;
     int i = 0, j = 0, k;
-
-    for (i = left, j = medio + 1, k = left; k <= right; k++) {
+    i = left;
+    j = medio + 1;
+    for (k = left; k <= right; k++) {
         if (i > medio) aux[k] = b[j++];
         else if (j > right) aux[k] = b[i++];
         else if (b[i] < b[j]) aux[k] = b[i++];
