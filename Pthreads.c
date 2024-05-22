@@ -11,8 +11,9 @@ void ordenarPar(int, int, double*);
 void combinar(int left, int medio, int right, double*);
 
 double *aux, *a, *b;
-int N, num_threads,chunk_size;
+int N, num_threads,chunk_size,resultado = 0;;
 double timetick;
+pthread_barrier_t barreara;
 
 double dwalltime(){
     double sec;
@@ -80,6 +81,18 @@ void* ordenarIterativo(void* arg){
             //combinar(L, M, R, b);
         }
     }
+    /////////////////////////////////REDUCE 1////////////////////////////////////////////
+    
+    // reducir
+    cant_hilos = cant_hilos / 2;
+    	    for (int cant_hilos = num_threads; cant_hilos >= 1 && id<cant_hilos; cant_hilos/=2 , chunk_size*=2){
+			      L = id * chunk_size;
+            M = L + chunk_size/2;
+            R = chunk_size - 1;
+            combinar(L, M, R, a);
+        }
+
+    
     
     ////////////////////////////////SEGUNDO MERGE////////////////////////////////////////
     
@@ -97,6 +110,22 @@ void* ordenarIterativo(void* arg){
             combinar(L, M, R, b);
         }
     }
+    
+    /////////////////////////////////REDUCE 2////////////////////////////////////////////
+    
+    
+    
+    
+    ////////////////////////////////BARRERA/////////////////////////////////////////////
+    pthread_barrier_wait(&barrera);
+    
+    int start = id * chunk_size;
+    int end = (id == num_threads - 1) ? N - 1 : (start + chunk_size - 1);
+     for (int i = start; i < end; i += 2){
+        if (a[i] != b[i]){
+            resultado = 1; // Los arreglos no son iguales
+        }
+    }
     printf("Tiempo en segundos del hilo %d : %f\n",id, dwalltime() - timetick);
     pthread_exit(NULL);
     
@@ -109,13 +138,10 @@ int main(int argc, char* argv[]){
     a = (double*)malloc(sizeof(double) * N);
     b = (double*)malloc(sizeof(double) * N);
     aux = (double*)malloc(sizeof(double) * N);
-
+		pthreads_barrier_init(&barrera,NULL,num_threads);
     // Inicialización de los arreglos
     for(int i = 0; i < N; i++){
-	/*a[i] = i;
-	aux[i] = i;
-	b[i] = (N-1)-i;  */
-	a[i] = rand() % 100; // Usar valores aleatorios para mayor variabilidad
+			  a[i] = rand() % 100; // Usar valores aleatorios para mayor variabilidad
         aux[i] = a[i];
         b[i] = a[i];
     }
@@ -145,24 +171,6 @@ int main(int argc, char* argv[]){
 
     //////////////////////////////
 
-    // Combinar los resultados de los hilos
-    for (int lenTrabajo = chunk_size; lenTrabajo < N; lenTrabajo *= 2){
-        for (int L = 0; L < N - 1; L += 2 * lenTrabajo){
-            int M = min(L + lenTrabajo - 1, N - 1);
-            int R = min(L + 2 * lenTrabajo - 1, N - 1);
-            combinar(L, M, R, a);
-            combinar(L, M, R, b);
-        }
-    }
-
-    int resultado = 0;
-    for (int i = 0; i < N; i++){
-        if (a[i] != b[i]){
-            resultado = 1; // Los arreglos no son iguales
-            printf("Se ha salido en la posicion %d\n", i);
-            break; // No es necesario seguir comparando
-        }
-    }
     #ifdef DEBUG
     for(int i = 0; i < N; i++){
     	printf("%.1f ", a[i]);
@@ -178,7 +186,7 @@ int main(int argc, char* argv[]){
     } else {
         printf("Los arreglos no son iguales\n");
     }
-
+		pthreads_barrier_destroy(&barrera);
     free(a);
     free(b);
     free(aux);
