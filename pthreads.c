@@ -3,12 +3,9 @@
 #include <sys/time.h>
 #include <pthread.h>
 
-void* ordenarIterativoA(void *arg);
-void ordenarParA(int, int);
-void combinarA(int left, int medio, int right);
-void ordenarIterativoB(int *);
-void ordenarParB(int, int);
-void combinarB(int left, int medio, int right);
+void* ordenarIterativo(void *arg);
+void ordenarPar(int, int, double *a);
+void combinar(int left, int medio, int right, double *a);
 
 double *aux, *a, *b;
 long N;
@@ -30,7 +27,7 @@ static inline int min(int n1, int n2){
     return (n1 < n2) ? n1 : n2;
 }
 
-void* ordenarIterativoA(void *arg){
+void* ordenarIterativo(void *arg){
     int id=*(int*)arg;
     int inicio = id * elementos_por_hilo;
     int fin = (id == num_threads - 1) ? N : (id + 1) * elementos_por_hilo;
@@ -39,7 +36,7 @@ void* ordenarIterativoA(void *arg){
     // Ordenar pares
     for (L=inicio; L < fin; L+=2){
         //printf("Soy el hilo %d, ordenando %d y %d\n", id, L, L+1);
-        ordenarParA(L, L+1);
+        ordenarPar(L, L+1, a);
     }
     //pthread_barrier_wait(&barrera);
 
@@ -52,8 +49,40 @@ void* ordenarIterativoA(void *arg){
                 //if (M >= lenTrabajo-1) break;    // ya está ordenado
                 R = min(L + lenTrabajo - 1, N-1);
                 //printf("Hilo id:%d, inicio:%d, fin: %d, lenTrabajo: %d, M:%d, R:%d, L:%d \n",id, inicio, fin, lenTrabajo, M, R, L);
-                combinarA(L, M, R);
+                combinar(L, M, R, a);
             }
+
+            if (lenTrabajo>=elementos_por_hilo){
+                fin *= 2;
+                inicio *= 2;
+                //printf("Hilo id:%d, incremento fin a %d e inicio a %d \n",id, fin, inicio);
+            }
+        }//else{
+        //    break;
+        //}
+        //printf("Hilo id:%d, LLEGUE BARREARA\n",id);
+        //pthread_barrier_wait(&barrera);
+    }
+        //--------------------------------B-----------------------------------------------------------
+
+    for (L=inicio; L < fin; L+=2){
+        //printf("Soy el hilo %d, ordenando %d y %d\n", id, L, L+1);
+        ordenarPar(L, L+1, b);
+    }
+    //pthread_barrier_wait(&barrera);
+
+    for (lenTrabajo=4; lenTrabajo <= N; lenTrabajo *= 2){
+        // En ultimo len: L = 0, 16 // M = 7, 23 // R = 15, 29
+        if (fin <= N){
+            for (L=inicio; L < fin; L += lenTrabajo){ //los hilos seran cada vez menos ejecutando a medida que lenTrabajo aumente de forma que id*elementos_por_hilo sea mayor que elementos_por_hilo-1 desde el primer valor
+                M = L + lenTrabajo/2 - 1;
+                //M = min(L + lenTrabajo / 2 - 1, fin);
+                //if (M >= lenTrabajo-1) break;    // ya está ordenado
+                R = min(L + lenTrabajo - 1, N-1);
+                //printf("Hilo id:%d, inicio:%d, fin: %d, lenTrabajo: %d, M:%d, R:%d, L:%d \n",id, inicio, fin, lenTrabajo, M, R, L);
+                combinar(L, M, R, b);
+            }
+
             if (lenTrabajo>=elementos_por_hilo){
                 fin *= 2;
                 inicio *= 2;
@@ -61,35 +90,38 @@ void* ordenarIterativoA(void *arg){
             }
         }
         //printf("Hilo id:%d, LLEGUE BARREARA\n",id);
-        pthread_barrier_wait(&barrera);
+        pthread_barrier_wait(&barrera); //barrena antes de comparar arreglos ordenados
+
+
+
     } //cuando sale del for lenTrabajo es mayor a N/num_threads
     pthread_exit(NULL);
 }
 
-void inline ordenarParA(int p1, int p2){
+void inline ordenarPar(int p1, int p2, double *ar){
     double aux1;
-    if (a[p1] > a[p2]){
-        aux1 = a[p1];
-        a[p1] = a[p2];
-        a[p2] = aux1;
+    if (ar[p1] > ar[p2]){
+        aux1 = ar[p1];
+        ar[p1] = ar[p2];
+        ar[p2] = aux1;
     }
 }
 
-void combinarA(int left, int medio, int right){
+void combinar(int left, int medio, int right, double *ar){
     //int len1 = medio - left + 1;
     //int len2 = right - medio;
     int i = 0, j = 0, k;
 
     for (i = left, j = medio + 1, k = left; k <= right; k++) {
-        if (i > medio) aux[k] = a[j++];
-        else if (j > right) aux[k] = a[i++];
-        else if (a[i] < a[j]) aux[k] = a[i++];
+        if (i > medio) aux[k] = ar[j++];
+        else if (j > right) aux[k] = ar[i++];
+        else if (a[i] < a[j]) aux[k] = ar[i++];
         else aux[k] = a[j++];
     }
 
     // Copiar de vuelta a 'a'
     for (k = left; k <= right; k++) {
-        a[k] = aux[k];
+        ar[k] = aux[k];
     }
 }
 
@@ -129,7 +161,7 @@ int main(int argc, char*argv[]){
     printf("Ordenando arreglos:\n");
     for(int id=0;id<num_threads;id++){
         threads_ids[id]=id;
-        pthread_create(&misThreads[id],NULL,&ordenarIterativoA,(void*)&threads_ids[id]);
+        pthread_create(&misThreads[id],NULL,&ordenarIterativo,(void*)&threads_ids[id]);
     }
     
     timetick = dwalltime();
