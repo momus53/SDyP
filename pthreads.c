@@ -82,15 +82,15 @@ void* ordenarIterativo(void *arg){
         pthread_barrier_wait(&barrera);   
     }
 
-    inicio = iniciobk;
-    fin = finbk;
     // Comparamos los arreglos
-    for (int i = 0; i < N; i++) {
+    
+    for (int i = iniciobk; i < finbk; i++) {
         if (a[i] != b[i]) {
             resultado=1; // Los arreglos no son iguales
             break; // No es necesario seguir comparando
         }
     }
+    
     pthread_exit(NULL);
 }
 
