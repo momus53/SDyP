@@ -73,11 +73,10 @@ int main(int argc, char*argv[]){
 
     elementos_por_proc = N / num_procs;
 
-    a = (int*)malloc(sizeof(int) * N);
-    b = (int*)malloc(sizeof(int) * N);
-    aux = (int*)malloc(sizeof(int) * N);
-
     if (rank == 0) {
+        a = (int*)malloc(sizeof(int) * N);
+        b = (int*)malloc(sizeof(int) * N);
+        aux = (int*)malloc(sizeof(int) * N);
         // Inicialización de los arreglos
         printf("inicializando arreglos\n");
         for (i = 0; i < N; i++) {
@@ -89,40 +88,79 @@ int main(int argc, char*argv[]){
         timetick = dwalltime();
     }
 
+    n_local = N / pow(2, (int)log2(rank + 1));
+    a_local = (int*)malloc(sizeof(int) * n_local);
+    b_local = (int*)malloc(sizeof(int) * n_local);
+    aux_local = (int*)malloc(sizeof(int) * n_local);
+    /*
     MPI_Bcast(a, N, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(b, N, MPI_INT, 0, MPI_COMM_WORLD);
-
-    int inicio = rank * elementos_por_proc;
-    int fin = (rank == num_procs - 1) ? N : (rank + 1) * elementos_por_proc;
+    */
+    
+    //int inicio = rank * elementos_por_proc;
+    //int fin = (rank == num_procs - 1) ? N : (rank + 1) * elementos_por_proc;
+    
+    int MPI_Scatter(a, elementos_por_proc, MPI_INT, a_local, elementos_por_proc, MPI_INT, 0, MPI_COMM_WORLD);
 
     for (int L = inicio; L < fin; L += 2) {
-        ordenarPar(L, L + 1, a);
+        ordenarPar(L, L + 1, a_local);
     }
 
     for (int lenTrabajo = 4; lenTrabajo <= N; lenTrabajo *= 2) {
-        for (int L = inicio; L < fin; L += lenTrabajo) {
+        for (int L = 0; L < elementos_por_proc; L += lenTrabajo) {
             int M = L + lenTrabajo / 2 - 1;
             int R = min(L + lenTrabajo - 1, N - 1);
-            combinar(L, M, R, a);
+            combinar(L, M, R, a_local);
         }
-        MPI_Barrier(MPI_COMM_WORLD);
+        //MPI_Barrier(MPI_COMM_WORLD);
+        if (lenTrabajo>=elementos_por_proc && elementos_por_proc < N){
+            int MPI_Gather(a_local, elementos_por_proc, MPI_INT, a, elementos_por_proc, MPI_INT, 0, MPI_COMM_WORLD);
+            elementos_por_proc*=2;
+            if (elementos_por_proc < N){
+                int MPI_Scatter(a, elementos_por_proc, MPI_INT, a_local, elementos_por_proc, MPI_INT, 0, MPI_COMM_WORLD);
+            }
+        }
+    }
+    
+    if (rank == 0) {
+        a = a_local;
     }
 
+    elementos_por_proc = N / num_procs;
+
+    int MPI_Scatter(b, elementos_por_proc, MPI_INT, b_local, elementos_por_proc, MPI_INT, 0, MPI_COMM_WORLD);
+
     for (int L = inicio; L < fin; L += 2) {
-        ordenarPar(L, L + 1, b);
+        ordenarPar(L, L + 1, b_local);
     }
 
     for (int lenTrabajo = 4; lenTrabajo <= N; lenTrabajo *= 2) {
-        for (int L = inicio; L < fin; L += lenTrabajo) {
+        for (int L = 0; L < elementos_por_proc; L += lenTrabajo) {
             int M = L + lenTrabajo / 2 - 1;
             int R = min(L + lenTrabajo - 1, N - 1);
-            combinar(L, M, R, b);
+            combinar(L, M, R, b_local);
         }
-        MPI_Barrier(MPI_COMM_WORLD);
+        //MPI_Barrier(MPI_COMM_WORLD);
+        if (lenTrabajo>=elementos_por_proc && elementos_por_proc < N){
+            int MPI_Gather(b_local, elementos_por_proc, MPI_INT, b, elementos_por_proc, MPI_INT, 0, MPI_COMM_WORLD);
+            elementos_por_proc*=2;
+            if (elementos_por_proc < N){
+                int MPI_Scatter(b, elementos_por_proc, MPI_INT, b_local, elementos_por_proc, MPI_INT, 0, MPI_COMM_WORLD);
+            }
+        }
     }
+    
+    if (rank == 0) {
+        b = b_local;
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
 
-    for (i = inicio; i < fin; i++) {
-        if (a[i] != b[i]) {
+    elementos_por_proc = N / num_procs;
+
+    MPI_Scatter(a, elementos_por_proc, MPI_INT, a_local, elementos_por_proc, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Scatter(b, elementos_por_proc, MPI_INT, b_local, elementos_por_proc, MPI_INT, 0, MPI_COMM_WORLD);
+    for (i = 0; i < elementos_por_proc; i++) {
+        if (a_local[i] != b_local[i]) {
             resultado = 1; 
             break; 
         }
@@ -141,11 +179,16 @@ int main(int argc, char*argv[]){
         }
     }
 
-    free(a);
-    free(b);
-    free(aux);
+    free(a_local);
+    free(b_local);
+    free(aux_local);
+    
+    if (rank == 0) {
+        free(a);
+        free(b);
+        free(aux);
+    }
 
     MPI_Finalize();
     return 0;
 }
-
