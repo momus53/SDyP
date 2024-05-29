@@ -14,7 +14,7 @@ int num_procs;
 int elementos_por_proc;
 int resultado = 0;
 int rank;
-int *aux_local, *a_local, *b_local, *a, *b;
+int *aux_local, *a_local, *b_local; //SON GLOBALES, NO COMPARTIDAS
 
 double dwalltime(){
     double sec;
@@ -50,13 +50,12 @@ void combinar(int left, int medio, int right, int *ar){
     }
     // Copiar de vuelta a 'a'
     for (k = left; k <= right; k++) {
-        ////printf("Soy rank %d y aux_local[%d] es %d, asignado a ar\n",rank, k, aux_local[k]);
         ar[k] = aux_local[k];
     }
 }
 
 int main(int argc, char*argv[]){
-    int i;
+    int i, n_local;
     double timetick;
 
     MPI_Init(&argc, &argv);
@@ -65,175 +64,166 @@ int main(int argc, char*argv[]){
 
     if (argc < 2){
         if (rank == 0) {
-            //printf("\n Falta un argumento:: N dimension del arreglo, T cantidad de procesos \n");
+            printf("\n Falta un argumento:: N dimension del arreglo, T cantidad de procesos \n");
         }
         MPI_Finalize();
         return 0;
     }
     
     N = atol(argv[1]);
-    //printf("Hola soy el rank %d y N es %ld\n", rank, N);
+
 
     elementos_por_proc = N / num_procs;
+    int num_procs_bk = num_procs;
 
-    //printf("Soy rank %d y voy a reservar memoria para a_local, b_local y aux_local\n", rank);
-    int n_local = N / pow(2, (int)log2(rank + 1));
-    //printf("Soy rank %d y n_local es %d\n", rank, n_local);
+    if ( rank == 0){
+        n_local = N;
+    }else{
+        n_local = N / pow(2, (int)log2(rank + 2));
+    }
+
     a_local = (int*)malloc(sizeof(int) * n_local);
     b_local = (int*)malloc(sizeof(int) * n_local);
     aux_local = (int*)malloc(sizeof(int) * n_local);
-    //printf("Soy rank %d y ya reservé memoria para a_local, b_local y aux_local\n", rank);
-
+    int *sendcounts;
+    int *displs;
+    int *a_local_bk, *b_local_bk;
+    int * a, *b;
     if (rank == 0) {
-        //printf("Hola soy el rank %d y vot a reservar memoria para a, b y aux\n", rank);
+        sendcounts = (int*)malloc(sizeof(int) * num_procs);
+        displs = (int*)malloc(sizeof(int) * num_procs);
         a = (int*)malloc(sizeof(int) * N);
         b = (int*)malloc(sizeof(int) * N);
-        // Inicialización de los arreglos
-        //printf("Soy rank %d y voy a inicializar arreglos \n", rank);
+
         for (i = 0; i < N; i++) {
             b[i] = i;
             aux_local[i] = 0;
             a[i] = (N - 1) - i;
         }
-        //printf("Soy rank %d y ya inicialicé arreglos \n", rank);
-        timetick = dwalltime();
+        for (i = 0; i < num_procs; i++) {
+            sendcounts[i] = elementos_por_proc;
+            displs[i] = i * elementos_por_proc;
+        }
+        timetick = dwalltime(); //rank 0 mide el tiempo
     }
     
-
-    /*
-    MPI_Bcast(a, N, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Bcast(b, N, MPI_INT, 0, MPI_COMM_WORLD);
-    */
-    
-    //int inicio = rank * elementos_por_proc;
-    //int fin = (rank == num_procs - 1) ? N : (rank + 1) * elementos_por_proc;
-    //printf("Soy rank %d y voy a hacer scatter de a\n", rank);
-    MPI_Scatter(a, elementos_por_proc, MPI_INT, a_local, elementos_por_proc, MPI_INT, 0, MPI_COMM_WORLD);
-
-    //printf("Soy rank %d y elementos_por_proc es %d\n", rank, elementos_por_proc);
+    MPI_Scatterv(a,sendcounts,displs, MPI_INT, a_local, elementos_por_proc, MPI_INT, 0, MPI_COMM_WORLD);
 
     for (int L = 0; L < elementos_por_proc; L += 2) {
         ordenarPar(L, L + 1, a_local);
     }
-    //printf("Soy rank %d y ya ordené a_local con ordenarPar \n", rank);
 
     for (int lenTrabajo = 4; lenTrabajo <= N; lenTrabajo *= 2) {
-        //printf("Soy rank %d y lenTrabajo es %d\n", rank, lenTrabajo);
+      if (elementos_por_proc <= n_local && elementos_por_proc != 0) {  
         for (int L = 0; L < elementos_por_proc; L += lenTrabajo) {
             int M = L + lenTrabajo / 2 - 1;
             int R = min(L + lenTrabajo - 1, N - 1);
-            //printf("Soy rank %d y L es %d, M es %d, R es %d\n", rank, L, M, R);
             combinar(L, M, R, a_local);
-            //printf("Soy rank %d y ya combiné a_local con combinar \n", rank);
         }
-        //MPI_Barrier(MPI_COMM_WORLD);
-        if (elementos_por_proc == 0){ 
-            //printf("Soy rank %d y elementos_por_proc para mi es 0, SALGO!!!!\n", rank);
-            break; 
-        }
+      }
         if (lenTrabajo>=elementos_por_proc && elementos_por_proc < N){
-            //printf("Soy rank %d y voy a hacer gather de a\n", rank);
-            //MPI_Barrier(MPI_COMM_WORLD);
-            MPI_Gather(a_local, elementos_por_proc, MPI_INT, a, elementos_por_proc, MPI_INT, 0, MPI_COMM_WORLD);
-            //printf("Soy rank %d y ya hice gather de a\n", rank);
+            MPI_Gatherv(a_local, elementos_por_proc, MPI_INT, a, sendcounts, displs, MPI_INT, 0, MPI_COMM_WORLD);
             elementos_por_proc*=2;
+            if (rank == 0 && elementos_por_proc < N) {
+                num_procs = num_procs / 2;
+                for (i = 0; i < num_procs; i++) {
+                    sendcounts[i] = elementos_por_proc;
+                    displs[i] = i * elementos_por_proc;
+                }
+                for (i = num_procs; i < num_procs_bk; i++) {
+                    sendcounts[i] = 0;
+                    displs[i] = 0;
+                }
+            }
             if (elementos_por_proc < N){
-                //printf("Soy rank %d y voy a hacer scatter de a\n", rank);
-                MPI_Scatter(a, elementos_por_proc, MPI_INT, a_local, elementos_por_proc, MPI_INT, 0, MPI_COMM_WORLD);
-                //printf("Soy rank %d y ya hice scatter de a, recibi elementos por proceso de: %d\n", rank, elementos_por_proc);
-            }else{
-                if (rank != 0) {
+                if (elementos_por_proc > n_local){
                     elementos_por_proc = 0;
-                }else{
-                    a_local = a;
-                    //printf("Soy rank %d, voy a ordenar todo los %d elementos de a\n", rank, elementos_por_proc);
-                    //printf("Hasta este punto, el arreglo a es: \n");
-                    for (i = 0; i < N; i++) {
-                        //printf("a[%d] es %d\n", i, a[i]);
-                    }
+                }
+                MPI_Scatterv(a,sendcounts,displs, MPI_INT, a_local, elementos_por_proc, MPI_INT, 0, MPI_COMM_WORLD);
+            }else{
+                if (rank == 0) {
+                    a_local_bk = a_local;
+                    a_local = a; //al arreglo a le falta el ultimo combinar (lo hace rank0)
                 }
             }
         }
+
     }
     
-    if (rank == 0) {
-        //printf("Soy rank %d, hemos terminao por ahora, el arreglo a es: \n", rank);
-        a = a_local;
-                    for (i = 0; i < N; i++) {
-                        //printf("a[%d] es %d\n", i, a[i]);
-                    }
-    }
-
+    num_procs = num_procs_bk;
     elementos_por_proc = N / num_procs;
 
-    MPI_Scatter(b, elementos_por_proc, MPI_INT, b_local, elementos_por_proc, MPI_INT, 0, MPI_COMM_WORLD);
+    if (rank == 0) {
+        a_local = a_local_bk; //recupera la direc de a_local
+        for (i = 0; i < num_procs; i++) {
+            sendcounts[i] = elementos_por_proc;
+            displs[i] = i * elementos_por_proc;
+        }
+    }
+
+    MPI_Scatterv(b,sendcounts,displs, MPI_INT, b_local, elementos_por_proc, MPI_INT, 0, MPI_COMM_WORLD);
 
     for (int L = 0; L < elementos_por_proc; L += 2) {
         ordenarPar(L, L + 1, b_local);
     }
-    //printf("Soy rank %d y ya ordené b_local con ordenarPar \n", rank);
 
     for (int lenTrabajo = 4; lenTrabajo <= N; lenTrabajo *= 2) {
-        //printf("Soy rank %d y lenTrabajo es %d\n", rank, lenTrabajo);
+      if (elementos_por_proc <= n_local && elementos_por_proc != 0) {  
         for (int L = 0; L < elementos_por_proc; L += lenTrabajo) {
             int M = L + lenTrabajo / 2 - 1;
             int R = min(L + lenTrabajo - 1, N - 1);
-            //printf("Soy rank %d y L es %d, M es %d, R es %d\n", rank, L, M, R);
             combinar(L, M, R, b_local);
-            //printf("Soy rank %d y ya combiné b_local con combinar \n", rank);
         }
-        //MPI_Barrier(MPI_COMM_WORLD);
-        if (elementos_por_proc == 0){ 
-            //printf("Soy rank %d y elementos_por_proc para mi es 0, SALGO!!!!\n", rank);
-            break; 
-        }
+      }
         if (lenTrabajo>=elementos_por_proc && elementos_por_proc < N){
-            //printf("Soy rank %d y voy a hacer gather de b\n", rank);
-            //MPI_Barrier(MPI_COMM_WORLD);
-            MPI_Gather(b_local, elementos_por_proc, MPI_INT, b, elementos_por_proc, MPI_INT, 0, MPI_COMM_WORLD);
-            //printf("Soy rank %d y ya hice gather de b\n", rank);
+            MPI_Gatherv(b_local, elementos_por_proc, MPI_INT, b, sendcounts, displs, MPI_INT, 0, MPI_COMM_WORLD);
             elementos_por_proc*=2;
+            if (rank == 0 && elementos_por_proc < N) {
+                num_procs = num_procs / 2;
+                for (i = 0; i < num_procs; i++) {
+                    sendcounts[i] = elementos_por_proc;
+                    displs[i] = i * elementos_por_proc;
+                }
+                for (i = num_procs; i < num_procs_bk; i++) {
+                    sendcounts[i] = 0;
+                    displs[i] = 0;
+                }
+            }
             if (elementos_por_proc < N){
-                //printf("Soy rank %d y voy a hacer scatter de b\n", rank);
-                MPI_Scatter(b, elementos_por_proc, MPI_INT, b_local, elementos_por_proc, MPI_INT, 0, MPI_COMM_WORLD);
-                //printf("Soy rank %d y ya hice scatter de b, recibi elementos por proceso de: %d\n", rank, elementos_por_proc);
-            }else{
-                if (rank != 0) {
+                if (elementos_por_proc > n_local){
                     elementos_por_proc = 0;
-                }else{
-                    b_local = b;                
+                }
+                MPI_Scatterv(b,sendcounts,displs, MPI_INT, b_local, elementos_por_proc, MPI_INT, 0, MPI_COMM_WORLD);
+            }else{
+                if (rank == 0) {
+                    b_local_bk = b_local;
+                    b_local = b; //al arreglo a le falta el ultimo combinar (lo hace rank0)
                 }
             }
         }
+
     }
 
-    if (rank == 0) {
-        b = b_local;
-    }
-
-    //MPI_Barrier(MPI_COMM_WORLD);
-
+    num_procs = num_procs_bk;
     elementos_por_proc = N / num_procs;
-    //printf("Soy rank %d y llegue al scatter de a, para recorrer el arreglo y comparar\n", rank);
+    
+    if (rank == 0) {
+        b_local = b_local_bk;
+        for (i = 0; i < num_procs; i++) {
+            sendcounts[i] = elementos_por_proc;
+            displs[i] = i * elementos_por_proc;
+        }
+    }
+
     MPI_Scatter(a, elementos_por_proc, MPI_INT, a_local, elementos_por_proc, MPI_INT, 0, MPI_COMM_WORLD);
-    //printf("Soy rank %d y llegue al scatter de b, para recorrer el arreglo y comparar\n", rank);
     MPI_Scatter(b, elementos_por_proc, MPI_INT, b_local, elementos_por_proc, MPI_INT, 0, MPI_COMM_WORLD);
-    //printf("Soy rank %d y ya hice scatter de a y b\n", rank);
-    /*
-    for (i = 0; i < elementos_por_proc; i++) {
-       //printf("Soy rank %d y a_local[%d] es %d\n", rank, i, a_local[i]);
-    }
-    for (i = 0; i < elementos_por_proc; i++) {
-       //printf("Soy rank %d y b_local[%d] es %d\n", rank, i, b_local[i]);
-    }
-    */
+
     for (i = 0; i < elementos_por_proc; i++) {
         if (a_local[i] != b_local[i]) {
             resultado = 1; 
             break; 
         }
     }
-    //printf("Soy rank %d y ya recorrí los arreglos, resultado para mi es %d \n", rank, resultado);
     int global_resultado;
     MPI_Reduce(&resultado, &global_resultado, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
 
