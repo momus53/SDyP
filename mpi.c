@@ -72,7 +72,6 @@ int main(int argc, char*argv[]){
     
     N = atol(argv[1]);
 
-
     elementos_por_proc = N / num_procs;
     int num_procs_bk = num_procs;
 
@@ -108,10 +107,13 @@ int main(int argc, char*argv[]){
     }
     
     MPI_Scatterv(a,sendcounts,displs, MPI_INT, a_local, elementos_por_proc, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Scatterv(b,sendcounts,displs, MPI_INT, b_local, elementos_por_proc, MPI_INT, 0, MPI_COMM_WORLD);
 
     for (int L = 0; L < elementos_por_proc; L += 2) {
         ordenarPar(L, L + 1, a_local);
+        ordenarPar(L, L + 1, b_local);
     }
+
 
     for (int lenTrabajo = 4; lenTrabajo <= N; lenTrabajo *= 2) {
       if (elementos_por_proc <= n_local && elementos_por_proc != 0) {  
@@ -119,63 +121,11 @@ int main(int argc, char*argv[]){
             int M = L + lenTrabajo / 2 - 1;
             int R = min(L + lenTrabajo - 1, N - 1);
             combinar(L, M, R, a_local);
-        }
-      }
-        if (lenTrabajo>=elementos_por_proc && elementos_por_proc < N){
-            MPI_Gatherv(a_local, elementos_por_proc, MPI_INT, a, sendcounts, displs, MPI_INT, 0, MPI_COMM_WORLD);
-            elementos_por_proc*=2;
-            if (rank == 0 && elementos_por_proc < N) {
-                num_procs = num_procs / 2;
-                for (i = 0; i < num_procs; i++) {
-                    sendcounts[i] = elementos_por_proc;
-                    displs[i] = i * elementos_por_proc;
-                }
-                for (i = num_procs; i < num_procs_bk; i++) {
-                    sendcounts[i] = 0;
-                    displs[i] = 0;
-                }
-            }
-            if (elementos_por_proc < N){
-                if (elementos_por_proc > n_local){
-                    elementos_por_proc = 0;
-                }
-                MPI_Scatterv(a,sendcounts,displs, MPI_INT, a_local, elementos_por_proc, MPI_INT, 0, MPI_COMM_WORLD);
-            }else{
-                if (rank == 0) {
-                    a_local_bk = a_local;
-                    a_local = a; //al arreglo a le falta el ultimo combinar (lo hace rank0)
-                }
-            }
-        }
-
-    }
-    
-    num_procs = num_procs_bk;
-    elementos_por_proc = N / num_procs;
-
-    if (rank == 0) {
-        a_local = a_local_bk; //recupera la direc de a_local
-        for (i = 0; i < num_procs; i++) {
-            sendcounts[i] = elementos_por_proc;
-            displs[i] = i * elementos_por_proc;
-        }
-    }
-
-    MPI_Scatterv(b,sendcounts,displs, MPI_INT, b_local, elementos_por_proc, MPI_INT, 0, MPI_COMM_WORLD);
-
-    for (int L = 0; L < elementos_por_proc; L += 2) {
-        ordenarPar(L, L + 1, b_local);
-    }
-
-    for (int lenTrabajo = 4; lenTrabajo <= N; lenTrabajo *= 2) {
-      if (elementos_por_proc <= n_local && elementos_por_proc != 0) {  
-        for (int L = 0; L < elementos_por_proc; L += lenTrabajo) {
-            int M = L + lenTrabajo / 2 - 1;
-            int R = min(L + lenTrabajo - 1, N - 1);
             combinar(L, M, R, b_local);
         }
       }
         if (lenTrabajo>=elementos_por_proc && elementos_por_proc < N){
+            MPI_Gatherv(a_local, elementos_por_proc, MPI_INT, a, sendcounts, displs, MPI_INT, 0, MPI_COMM_WORLD);
             MPI_Gatherv(b_local, elementos_por_proc, MPI_INT, b, sendcounts, displs, MPI_INT, 0, MPI_COMM_WORLD);
             elementos_por_proc*=2;
             if (rank == 0 && elementos_por_proc < N) {
@@ -193,21 +143,25 @@ int main(int argc, char*argv[]){
                 if (elementos_por_proc > n_local){
                     elementos_por_proc = 0;
                 }
+                MPI_Scatterv(a,sendcounts,displs, MPI_INT, a_local, elementos_por_proc, MPI_INT, 0, MPI_COMM_WORLD);
                 MPI_Scatterv(b,sendcounts,displs, MPI_INT, b_local, elementos_por_proc, MPI_INT, 0, MPI_COMM_WORLD);
             }else{
                 if (rank == 0) {
+                    a_local_bk = a_local;
                     b_local_bk = b_local;
-                    b_local = b; //al arreglo a le falta el ultimo combinar (lo hace rank0)
+                    a_local = a; //al arreglo a le falta el ultimo combinar (lo hace rank0)
+                    b_local = b;
                 }
             }
         }
 
     }
-
+    
     num_procs = num_procs_bk;
     elementos_por_proc = N / num_procs;
-    
+
     if (rank == 0) {
+        a_local = a_local_bk; //recupera la direc de a_local
         b_local = b_local_bk;
         for (i = 0; i < num_procs; i++) {
             sendcounts[i] = elementos_por_proc;
