@@ -7,7 +7,7 @@ void* ordenarIterativo(void *arg);
 void ordenarPar(int, int, int *a);
 void combinar(int left, int medio, int right, int *a);
 
-int *aux, *a, *b;
+int *aux, *a, *b, *trabajo_hilo;
 long N;
 int num_threads ;
 int elementos_por_hilo;
@@ -41,7 +41,7 @@ void* ordenarIterativo(void *arg){
     }
 
     for (lenTrabajo=4; lenTrabajo <= N; lenTrabajo *= 2){
-        if (fin <= N){
+        if (trabajo_hilo[id] < lenTrabajo){
             for (L=inicio; L < fin; L += lenTrabajo){ //los hilos seran cada vez menos ejecutando a medida que lenTrabajo aumente de forma que id*elementos_por_hilo sea mayor que elementos_por_hilo-1 desde el primer valor
                 M = L + lenTrabajo/2 - 1;
                 //if (M >= lenTrabajo-1) break;    // ya está ordenado
@@ -51,8 +51,9 @@ void* ordenarIterativo(void *arg){
 
             if (lenTrabajo>=elementos_por_hilo){
                 fin *= 2;
-                inicio *= 2;
             }
+        }else{
+            break;
         }
         pthread_barrier_wait(&barrera);
 
@@ -67,20 +68,20 @@ void* ordenarIterativo(void *arg){
     }
 
     for (lenTrabajo=4; lenTrabajo <= N; lenTrabajo *= 2){
-        if (fin <= N){
-            for (L=inicio; L < fin; L += lenTrabajo){
+        if (trabajo_hilo[id] < lenTrabajo){
+            for (L=inicio; L < fin; L += lenTrabajo){ //los hilos seran cada vez menos ejecutando a medida que lenTrabajo aumente de forma que id*elementos_por_hilo sea mayor que elementos_por_hilo-1 desde el primer valor
                 M = L + lenTrabajo/2 - 1;
                 //if (M >= lenTrabajo-1) break;    // ya está ordenado
                 R = min(L + lenTrabajo - 1, N-1);
                 combinar(L, M, R, b);
             }
+
             if (lenTrabajo>=elementos_por_hilo){
                 fin *= 2;
-                inicio *= 2;
             }
+        }else{
+            break;
         }
-        pthread_barrier_wait(&barrera);   
-    }
 
     // Comparamos los arreglos
     
@@ -91,7 +92,8 @@ void* ordenarIterativo(void *arg){
         }
     }
     
-    pthread_exit(NULL);
+        pthread_exit(NULL);
+    }
 }
 
 void ordenarPar(int p1, int p2, int *ar){
@@ -147,6 +149,19 @@ int main(int argc, char*argv[]){
         aux[i] = 0;
 		a[i] = (N-1)-i;        
  	}
+    for (int k=0; k<num_threads; k++){
+            if ( k == 0){
+            trabajo_hilo[k] = N;
+            }else{
+                for (int i=num_threads/2; i>0; i/=2){
+                    if (k % i == 0){
+                        trabajo_hilo[k] = N / (num_threads/i);
+                        break;
+                    }
+                }
+
+            }
+    }
     //printf("ordenando\n");
     timetick = dwalltime();
 
