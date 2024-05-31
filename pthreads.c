@@ -141,13 +141,13 @@ int main(int argc, char*argv[]){
 	aux = (int*)malloc(sizeof(int)*N);
 
 	//inicializacion de los arreglos iguales 
-    printf("inicializando arreglos\n");
+    //printf("inicializando arreglos\n");
 	for(int i=0;i<N;i++){
 		b[i] = i;
         aux[i] = 0;
 		a[i] = (N-1)-i;        
  	}
-    printf("ordenando\n");
+    //printf("ordenando\n");
     timetick = dwalltime();
 
     for(int id=0;id<num_threads;id++){
