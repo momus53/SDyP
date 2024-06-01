@@ -31,47 +31,43 @@ void* ordenarIterativo(void *arg){
     int id=*(int*)arg;
     int inicio = id * elementos_por_hilo;
     int fin = (id == num_threads - 1) ? N : (id + 1) * elementos_por_hilo;
-    int iniciobk = inicio;
-    int finbk = fin;
-    int lenTrabajo, L, M, R,i;    
-    //printf("Hilo id:%d, inicio:%d, fin: %d \n",id, inicio, fin);
+    int lenTrabajo, L, M, R,i;   
+    
     // Ordenar pares
     for (L=inicio; L < fin; L+=2){
         ordenarPar(L, L+1, a);
     }
 
     for (lenTrabajo=4; lenTrabajo <= N; lenTrabajo *= 2){
-        if (trabajo_hilo[id] < lenTrabajo){
-            for (L=inicio; L < fin; L += lenTrabajo){ //los hilos seran cada vez menos ejecutando a medida que lenTrabajo aumente de forma que id*elementos_por_hilo sea mayor que elementos_por_hilo-1 desde el primer valor
+        if (trabajo_hilo[id] >= lenTrabajo){
+            for (L=inicio; L < fin; L += lenTrabajo){ //los hilos seran cada vez menos ejecutando a medida que lenTrabajo aumente
                 M = L + lenTrabajo/2 - 1;
-                //if (M >= lenTrabajo-1) break;    // ya está ordenado
                 R = min(L + lenTrabajo - 1, N-1);
                 combinar(L, M, R, a);
             }
 
             if (lenTrabajo>=elementos_por_hilo){
+            //printf("soy hilo %d mi trabajo es %d y lenTrabajo es %d \n",id,trabajo_hilo[id],lenTrabajo);
                 fin *= 2;
             }
-        }else{
-            break;
-        }
-        pthread_barrier_wait(&barrera);
-
+            }else{
+              break;
+            }
     }
+    
+    pthread_barrier_wait(&barrera);
 //--------------------------------------------------- arreglo B -----------------------------------------------------------
-    //ajustamos nuevamente inicio y fin originales
-    inicio = iniciobk;
-    fin = finbk;
+    //ajustamos nuevamente fin original
+    fin = (id == num_threads - 1) ? N : (id + 1) * elementos_por_hilo;
 
     for (L=inicio; L < fin; L+=2){
         ordenarPar(L, L+1, b);
     }
 
     for (lenTrabajo=4; lenTrabajo <= N; lenTrabajo *= 2){
-        if (trabajo_hilo[id] < lenTrabajo){
-            for (L=inicio; L < fin; L += lenTrabajo){ //los hilos seran cada vez menos ejecutando a medida que lenTrabajo aumente de forma que id*elementos_por_hilo sea mayor que elementos_por_hilo-1 desde el primer valor
+        if (trabajo_hilo[id] >= lenTrabajo){
+            for (L=inicio; L < fin; L += lenTrabajo){ //los hilos seran cada vez menos ejecutando a medida que lenTrabajo aumente
                 M = L + lenTrabajo/2 - 1;
-                //if (M >= lenTrabajo-1) break;    // ya está ordenado
                 R = min(L + lenTrabajo - 1, N-1);
                 combinar(L, M, R, b);
             }
@@ -82,10 +78,12 @@ void* ordenarIterativo(void *arg){
         }else{
             break;
         }
+        }
 
     // Comparamos los arreglos
+    fin = (id == num_threads - 1) ? N : (id + 1) * elementos_por_hilo;
     
-    for (int i = iniciobk; i < finbk; i++) {
+    for (int i = inicio; i < fin; i++) {
         if (a[i] != b[i]) {
             resultado=1; // Los arreglos no son iguales
             break; // No es necesario seguir comparando
@@ -93,7 +91,6 @@ void* ordenarIterativo(void *arg){
     }
     
         pthread_exit(NULL);
-    }
 }
 
 void ordenarPar(int p1, int p2, int *ar){
@@ -131,7 +128,7 @@ int main(int argc, char*argv[]){
     N = atol(argv[1]);
     num_threads = atoi(argv[2]);
 
-	double timetick;
+    double timetick;
     elementos_por_hilo = N / num_threads;
 
     pthread_barrier_init(&barrera,NULL, num_threads);
@@ -141,12 +138,12 @@ int main(int argc, char*argv[]){
 	a = (int*)malloc(sizeof(int)*N);
 	b = (int*)malloc(sizeof(int)*N);
 	aux = (int*)malloc(sizeof(int)*N);
+	trabajo_hilo = (int*)malloc(sizeof(int)*num_threads);
 
 	//inicializacion de los arreglos iguales 
-    //printf("inicializando arreglos\n");
 	for(int i=0;i<N;i++){
 		b[i] = i;
-        aux[i] = 0;
+                aux[i] = 0;
 		a[i] = (N-1)-i;        
  	}
     for (int k=0; k<num_threads; k++){
@@ -180,7 +177,17 @@ int main(int argc, char*argv[]){
     } else {
         printf("Los arreglos no son iguales\n");
     }
-
+    
+    /*
+    printf("A: ");
+    for(int i=0;i<N;i++){
+      printf("%d ",a[i]);      
+    }
+    printf("\nB: ");
+    for(int i=0;i<N;i++){
+      printf("%d ",b[i]);      
+    }*/
+    
  	free(a);
  	free(b);
  	free(aux);
