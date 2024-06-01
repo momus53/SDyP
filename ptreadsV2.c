@@ -32,7 +32,6 @@ void* ordenarIterativo(void *arg){
     int inicio = id * elementos_por_hilo;
     int fin = (id == num_threads - 1) ? N : (id + 1) * elementos_por_hilo;
     int lenTrabajo, L, M, R,i;   
-    
     // Ordenar pares
     for (L=inicio; L < fin; L+=2){
         ordenarPar(L, L+1, a);
@@ -50,12 +49,10 @@ void* ordenarIterativo(void *arg){
             //printf("soy hilo %d mi trabajo es %d y lenTrabajo es %d \n",id,trabajo_hilo[id],lenTrabajo);
                 fin *= 2;
             }
-            }else{
-              break;
-            }
+        } //else no se puede salir por la barrera
+        pthread_barrier_wait(&barrera);
     }
     
-    pthread_barrier_wait(&barrera);
 //--------------------------------------------------- arreglo B -----------------------------------------------------------
     //ajustamos nuevamente fin original
     fin = (id == num_threads - 1) ? N : (id + 1) * elementos_por_hilo;
@@ -75,10 +72,10 @@ void* ordenarIterativo(void *arg){
             if (lenTrabajo>=elementos_por_hilo){
                 fin *= 2;
             }
-        }else{
-            break;
         }
-        }
+        pthread_barrier_wait(&barrera);
+
+    }
 
     // Comparamos los arreglos
     fin = (id == num_threads - 1) ? N : (id + 1) * elementos_por_hilo;
