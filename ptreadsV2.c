@@ -24,72 +24,70 @@ double dwalltime(){
 }
 
 static inline int min(int n1, int n2){
-    return (n1 < n2) ? n1 : n2;
+	return (n1 < n2) ? n1 : n2;
 }
 
 void* ordenarIterativo(void *arg){
-    int id=*(int*)arg;
-    int inicio = id * elementos_por_hilo;
-    int fin = (id == num_threads - 1) ? N : (id + 1) * elementos_por_hilo;
-    int lenTrabajo, L, M, R,i;   
-    // Ordenar pares
-    for (L=inicio; L < fin; L+=2){
-        ordenarPar(L, L+1, a);
-    }
-
-    for (lenTrabajo=4; lenTrabajo <= N; lenTrabajo *= 2){
-        if (trabajo_hilo[id] >= lenTrabajo){
-            for (L=inicio; L < fin; L += lenTrabajo){ //los hilos seran cada vez menos ejecutando a medida que lenTrabajo aumente
-                M = L + lenTrabajo/2 - 1;
-                R = min(L + lenTrabajo - 1, N-1);
-                combinar(L, M, R, a);
-            }
-
-            if (lenTrabajo>=elementos_por_hilo){
-            //printf("soy hilo %d mi trabajo es %d y lenTrabajo es %d \n",id,trabajo_hilo[id],lenTrabajo);
-                fin *= 2;
-            }
-        } //else no se puede salir por la barrera
-        pthread_barrier_wait(&barrera);
-    }
+	int id=*(int*)arg;
+	int inicio = id * elementos_por_hilo;
+	int fin = (id == num_threads - 1) ? N : (id + 1) * elementos_por_hilo;
+	int lenTrabajo, L, M, R,i;   
+	// Ordenar pares
+	for (L=inicio; L < fin; L+=2){
+		ordenarPar(L, L+1, a);
+	}
+	//Ordenamos el arreglo con merge-sort
+	for (lenTrabajo=4; lenTrabajo <= N; lenTrabajo *= 2){
+		if (trabajo_hilo[id] >= lenTrabajo){ //Solo ordenan aquellos hilos que tienen la longitud de trabajo suficiente (distribuida previamente en trabajo_hilo[k] en el main)
+	            	for (L=inicio; L < fin; L += lenTrabajo){ //Se ordena de a bloques de lenTrabajo la seccion del arreglo que le toco a hilo.
+	                	M = L + lenTrabajo/2 - 1;
+	                	R = min(L + lenTrabajo - 1, N-1);
+	                	combinar(L, M, R, a); //Se ordena el sub-arreglo
+	            	}
+	
+	        	if (lenTrabajo>=elementos_por_hilo){
+	                	fin += lenTrabajo; //se incrementa la seccion de trabajo del arreglo
+	            	}
+        	} 
+        pthread_barrier_wait(&barrera); //Espera antes que los demas hilos terminen de trabajar para aumentar la seccion de trabajo
+	}
     
 //--------------------------------------------------- arreglo B -----------------------------------------------------------
-    //ajustamos nuevamente fin original
-    fin = (id == num_threads - 1) ? N : (id + 1) * elementos_por_hilo;
+	//ajustamos nuevamente fin original
+	fin = (id == num_threads - 1) ? N : (id + 1) * elementos_por_hilo;
 
-    for (L=inicio; L < fin; L+=2){
-        ordenarPar(L, L+1, b);
-    }
+	for (L=inicio; L < fin; L+=2){
+		ordenarPar(L, L+1, b);
+	}
 
-    for (lenTrabajo=4; lenTrabajo <= N; lenTrabajo *= 2){
-        if (trabajo_hilo[id] >= lenTrabajo){
-            for (L=inicio; L < fin; L += lenTrabajo){ //los hilos seran cada vez menos ejecutando a medida que lenTrabajo aumente
-                M = L + lenTrabajo/2 - 1;
-                R = min(L + lenTrabajo - 1, N-1);
-                combinar(L, M, R, b);
-            }
+	for (lenTrabajo=4; lenTrabajo <= N; lenTrabajo *= 2){
+		if (trabajo_hilo[id] >= lenTrabajo){
+	        	for (L=inicio; L < fin; L += lenTrabajo){ //los hilos seran cada vez menos ejecutando a medida que lenTrabajo aumente
+	                	M = L + lenTrabajo/2 - 1;
+	                	R = min(L + lenTrabajo - 1, N-1);
+	                	combinar(L, M, R, b);
+	        	}
+				
+	        	if (lenTrabajo>=elementos_por_hilo){
+	        		fin += lenTrabajo;
+	        	}
+		}
+	pthread_barrier_wait(&barrera);
+	}
 
-            if (lenTrabajo>=elementos_por_hilo){
-                fin *= 2;
-            }
-        }
-        pthread_barrier_wait(&barrera);
-
-    }
-
-    // Comparamos los arreglos
-    fin = (id == num_threads - 1) ? N : (id + 1) * elementos_por_hilo;
-    
-    for (int i = inicio; i < fin; i++) {
-        if (a[i] != b[i]) {
-            resultado=1; // Los arreglos no son iguales
-            break; // No es necesario seguir comparando
-        }
-    }
-    
-        pthread_exit(NULL);
+	fin = (id == num_threads - 1) ? N : (id + 1) * elementos_por_hilo;
+	
+	// Comparamos los arreglos ya ordenados
+	for (int i = inicio; i < fin; i++) {
+        	if (a[i] != b[i]) {
+			resultado=1; // Los arreglos no son iguales
+			break; // No es necesario seguir comparando
+		}
+	}
+	pthread_exit(NULL);
 }
 
+//Funcion para ordenar un sub-arreglo de dos elementos.
 void ordenarPar(int p1, int p2, int *ar){
     int aux1;
     if (ar[p1] > ar[p2]){
@@ -99,6 +97,7 @@ void ordenarPar(int p1, int p2, int *ar){
     }
 }
 
+//Funcion para ordenar un sub-arreglo en base a los limites y el arreglo pasados por parametro.
 void combinar(int left, int medio, int right, int *ar){
 
     int i = 0, j = 0, k;
@@ -118,31 +117,31 @@ void combinar(int left, int medio, int right, int *ar){
 
 int main(int argc, char*argv[]){
 
-    if (argc < 3){
-        printf("\n Falta un argumento:: N dimension del arreglo, T cantidad de hilos \n");
-        return 0;
-    }
-    N = atol(argv[1]);
-    num_threads = atoi(argv[2]);
+    	if (argc < 3){
+        	printf("\n Falta un argumento:: N dimension del arreglo, T cantidad de hilos \n");
+		return 0;
+	}
+	N = atol(argv[1]);
+	num_threads = atoi(argv[2]);
 
-    double timetick;
-    elementos_por_hilo = N / num_threads;
+	double timetick;
+	elementos_por_hilo = N / num_threads;
 
-    pthread_barrier_init(&barrera,NULL, num_threads);
-    pthread_t misThreads[num_threads];
-    int threads_ids[num_threads];
-
+	pthread_barrier_init(&barrera,NULL, num_threads);
+	pthread_t misThreads[num_threads];
+	int threads_ids[num_threads];
 	a = (int*)malloc(sizeof(int)*N);
 	b = (int*)malloc(sizeof(int)*N);
 	aux = (int*)malloc(sizeof(int)*N);
-	trabajo_hilo = (int*)malloc(sizeof(int)*num_threads);
+	trabajo_hilo = (int*)malloc(sizeof(int)*num_threads); //cantidad de trabajo que le tocara a cada hilo
 
 	//inicializacion de los arreglos iguales 
 	for(int i=0;i<N;i++){
-		b[i] = i;
-                aux[i] = 0;
-		a[i] = (N-1)-i;        
+	b[i] = (N-1)-i;
+        aux[i] = 0;
+	a[i] = (N-1)-i;        
  	}
+//Definimos el tamaño de trabajo para cada hilo.
     for (int k=0; k<num_threads; k++){
             if ( k == 0){
             trabajo_hilo[k] = N;
@@ -156,7 +155,7 @@ int main(int argc, char*argv[]){
 
             }
     }
-    //printf("ordenando\n");
+
     timetick = dwalltime();
 
     for(int id=0;id<num_threads;id++){
@@ -174,20 +173,9 @@ int main(int argc, char*argv[]){
     } else {
         printf("Los arreglos no son iguales\n");
     }
-    
-    /*
-    printf("A: ");
-    for(int i=0;i<N;i++){
-      printf("%d ",a[i]);      
-    }
-    printf("\nB: ");
-    for(int i=0;i<N;i++){
-      printf("%d ",b[i]);      
-    }*/
-    
  	free(a);
  	free(b);
- 	free(aux);
+  	free(aux);
     pthread_barrier_destroy(&barrera);
 
  return 0;
