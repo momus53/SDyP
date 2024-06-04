@@ -7,7 +7,6 @@
 void ordenarPar(int p1, int p2, int *ar);
 void combinar(int left, int medio, int right, int *ar);
 double dwalltime();
-static inline int min(int n1, int n2);
 
 int N;
 int num_procs;
@@ -23,10 +22,6 @@ double dwalltime(){
     gettimeofday(&tv, NULL);
     sec = tv.tv_sec + tv.tv_usec / 1000000.0;
     return sec;
-}
-
-static inline int min(int n1, int n2){
-    return (n1 < n2) ? n1 : n2;
 }
 
 void ordenarPar(int p1, int p2, int *ar){
@@ -48,7 +43,7 @@ void combinar(int left, int medio, int right, int *ar){
         else if (ar[i] < ar[j]) aux_local[k] = ar[i++];
         else aux_local[k] = ar[j++];
     }
-    // Copiar de vuelta a 'a'
+    // Copiar Aux a A. 
     for (k = left; k <= right; k++) {
         ar[k] = aux_local[k];
     }
@@ -75,9 +70,10 @@ int main(int argc, char*argv[]){
     elementos_por_proc = N / num_procs;
     int num_procs_bk = num_procs;
 
+    //Cada proceso, define cuanto trabajo debera realizar y lo guarda en n_local. (Por ej, rank 0, debera recorrer y ordenar todo el arreglo, eventualmente, por lo que su n_local es N).
     if ( rank == 0){
         n_local = N;
-    }else{
+    }else{  
         for (int i=num_procs/2; i>0; i/=2){
             if (rank % i == 0){
                 n_local = N / (num_procs/i);
@@ -117,7 +113,7 @@ int main(int argc, char*argv[]){
         
         for (int L = 0; L < elementos_por_proc; L += lenTrabajo) {
             int M = L + lenTrabajo / 2 - 1;
-            int R = min(L + lenTrabajo - 1, N - 1);
+            int R = L + lenTrabajo - 1;
             combinar(L, M, R, a_local);
             combinar(L, M, R, b_local);
         }
@@ -125,20 +121,13 @@ int main(int argc, char*argv[]){
         if (lenTrabajo>=elementos_por_proc && elementos_por_proc < N){
             elementos_por_recibir = elementos_por_proc;
             elementos_por_proc*=2;
-            if (elementos_por_proc > n_local){
+            if (elementos_por_proc > n_local){ //si el proceso llego a su limite de tamaño de trabjo, envia su parte ordenada al proceso que le corresponde.
                 MPI_Send(a_local, elementos_por_recibir, MPI_INT, rank-cont, 0, MPI_COMM_WORLD);
-                // for (int i = 0; i < elementos_por_recibir; i++) {
-                //     printf("RANK: %d SEND to RANK%d A_LOCAL[%d/%d]=%d \n",rank,rank-cont,i,elementos_por_recibir-1,a_local[i]);
-                // }
                 MPI_Send(b_local, elementos_por_recibir, MPI_INT, rank-cont, 0, MPI_COMM_WORLD);
                 break;
-            }else{
-         // si el proceso tiene espacio para recibir elementos_por_proc*2 entonces entra para recibir trabajo
-                MPI_Recv (&a_local[elementos_por_recibir], elementos_por_recibir, MPI_INT, rank+cont ,MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE); // 0 recibe siempre de 1
+            }else{ // si el proceso tiene espacio para recibir elementos_por_proc*2 entonces entra para recibir trabajo
+                MPI_Recv (&a_local[elementos_por_recibir], elementos_por_recibir, MPI_INT, rank+cont ,MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE); 
                 MPI_Recv (&b_local[elementos_por_recibir], elementos_por_recibir, MPI_INT, rank+cont ,MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-                    // for (int i = 0; i < n_local; i++) {
-                    //     printf("RANK: %d RECIEVE FROM RANK%d A_LOCAL[%d] queda: =%d \n",rank,1,i, a_local[i]);
-                    // }
             }
         cont*=2;
         }
@@ -154,7 +143,7 @@ int main(int argc, char*argv[]){
         b = b_local;
         b_local = b_bk;
     }
-
+    //Se vuelve a repartir el trabajo para comparar los arreglos ordenados
     MPI_Scatter(a, elementos_por_proc, MPI_INT, a_local, elementos_por_proc, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Scatter(b, elementos_por_proc, MPI_INT, b_local, elementos_por_proc, MPI_INT, 0, MPI_COMM_WORLD);
 
@@ -165,6 +154,7 @@ int main(int argc, char*argv[]){
         }
     }
     int global_resultado;
+    //Si algun proceso encuentra que los arreglos no son iguales, la variable global_resultado luego del Reduce, resultaria > 0
     MPI_Reduce(&resultado, &global_resultado, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
 
     if (rank == 0) {
