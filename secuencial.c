@@ -6,7 +6,6 @@ void ordenarIterativo();
 void ordenarPar(int, int, int *a);
 void combinar(int left, int medio, int right, int *a);
 
-
 int *aux, *a, *b;
 int N;
 int resultado = 0;
@@ -20,10 +19,6 @@ double dwalltime(){
 	return sec;
 }
 
-static inline int min(int n1, int n2){
-    return (n1 < n2) ? n1 : n2;
-}
-
 void ordenarIterativo(int *ar){
     int lenTrabajo, L, M, R,i;
 
@@ -32,23 +27,17 @@ void ordenarIterativo(int *ar){
         ordenarPar(L, L+1, ar);
     }
 
-    for (lenTrabajo=4; lenTrabajo <= N; lenTrabajo *= 2){
+    for (lenTrabajo=4; lenTrabajo <= N; lenTrabajo *= 2){ //Se ordena el arreglo de a subarreglos hasta llegar a N.
 
         for (L=0; L < N-1; L += lenTrabajo){
             M = L + lenTrabajo/2 - 1;
-            //if (M >= N-1) break;    // ya está ordenado 
-            R = min(L + lenTrabajo - 1, N-1);
+            R = L + lenTrabajo - 1;
             combinar(L, M, R, ar);
         }
     }
-    
-    if (lenTrabajo != (N*2)) { // permite que el arreglo se ordene en caso de que N no sea potencia de 2 
-        M = (int)(lenTrabajo/2);
-        combinar(0, M-1, N-1, ar);
-    }
-    
-}
 
+}
+//Funcion para ordenar un sub-arreglo de dos elementos.
 void ordenarPar(int p1, int p2, int *ar){
     double aux1;
     if (ar[p1] > ar[p2]){
@@ -57,7 +46,7 @@ void ordenarPar(int p1, int p2, int *ar){
         ar[p2] = aux1;
     }
 }
-
+//Funcion para ordenar un sub-arreglo en base a los limites y el arreglo pasados por parametro.
 void combinar(int left, int medio, int right, int *ar){
 
     int i = 0, j = 0, k;
@@ -96,14 +85,15 @@ int main(int argc, char*argv[]){
 	timetick = dwalltime(); //arranca a contar 	
  	
  	ordenarIterativo(a);
-    ordenarIterativo(b);
+	ordenarIterativo(b);
 
-    for (int i = 0; i < N; i++) {
-        if (a[i] != b[i]) {
-            resultado=1; // Los arreglos no son iguales
-            break; // No es necesario seguir comparando
-        }
-    }
+	//Se comparan los arreglos ya ordenados
+	for (int i = 0; i < N; i++) {
+		if (a[i] != b[i]) {
+        		resultado=1; // Los arreglos no son iguales
+        		break; // No es necesario seguir comparando
+		}
+	}
 
     printf("Tiempo en segundos %f\n", dwalltime() - timetick);
 
@@ -113,8 +103,8 @@ int main(int argc, char*argv[]){
         printf("Los arreglos no son iguales\n");
     }
 
- 	free(a);
- 	free(b);
- 	free(aux);
+ free(a);
+ free(b);
+ free(aux);
  return 0;
 }
