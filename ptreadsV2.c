@@ -23,10 +23,6 @@ double dwalltime(){
 	return sec;
 }
 
-static inline int min(int n1, int n2){
-	return (n1 < n2) ? n1 : n2;
-}
-
 void* ordenarIterativo(void *arg){
 	int id=*(int*)arg;
 	int inicio = id * elementos_por_hilo;
@@ -41,7 +37,7 @@ void* ordenarIterativo(void *arg){
 		if (trabajo_hilo[id] >= lenTrabajo){ //Solo ordenan aquellos hilos que tienen la longitud de trabajo suficiente (distribuida previamente en trabajo_hilo[k] en el main)
 	            	for (L=inicio; L < fin; L += lenTrabajo){ //Se ordena de a bloques de lenTrabajo la seccion del arreglo que le toco a hilo.
 	                	M = L + lenTrabajo/2 - 1;
-	                	R = min(L + lenTrabajo - 1, N-1);
+	                	R = L + lenTrabajo - 1;
 	                	combinar(L, M, R, a); //Se ordena el sub-arreglo
 	            	}
 	
@@ -64,7 +60,7 @@ void* ordenarIterativo(void *arg){
 		if (trabajo_hilo[id] >= lenTrabajo){
 	        	for (L=inicio; L < fin; L += lenTrabajo){ //los hilos seran cada vez menos ejecutando a medida que lenTrabajo aumente
 	                	M = L + lenTrabajo/2 - 1;
-	                	R = min(L + lenTrabajo - 1, N-1);
+	                	R = L + lenTrabajo - 1;
 	                	combinar(L, M, R, b);
 	        	}
 				
